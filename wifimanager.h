@@ -8,7 +8,7 @@
 #ifndef WIFIMANAGER_h
 #define WIFIMANAGER_h
 
-#ifndef WIFIMANAGER_MAX_APS 
+#ifndef WIFIMANAGER_MAX_APS
 #define WIFIMANAGER_MAX_APS 4   // Valid range is uint8_t
 #endif
 
@@ -49,6 +49,8 @@ class WIFIMANAGER {
 
     bool softApRunning = false;         // Due to lack of functions, we have to remember if the AP is already running...
     bool createFallbackAP = true;       // Create an AP for configuration if no other connection is available
+    String softApName = "";             // Name of the SoftAP
+    String softApPass = "";             // Password of the SoftAP
 
     uint64_t lastWifiCheckMillis = 0;   // Time of last Wifi health check
     uint32_t intervalWifiCheckMillis = 15000; // Interval of the Wifi health checks
@@ -74,8 +76,8 @@ class WIFIMANAGER {
     // Get the current fallback state
     bool getFallbackState();
 
-    // Call to run the Task 
-    void startBackgroundTask();
+    // Call to run the Task
+    void startBackgroundTask(String apName = "", String apPass = "");
 
     // Attach a webserver and register api routes
 #if ASYNC_WEBSERVER == true
@@ -100,7 +102,7 @@ class WIFIMANAGER {
     bool configAvailable();
 
     // Start a SoftAP, called if no wifi can be connected
-    bool runSoftAP(String apName = "");
+    bool runSoftAP(String apName = "", String apPass = "");
 
     // Disconnect/Stop SoftAP Mode
     void stopSoftAP();

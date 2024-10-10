@@ -38,8 +38,13 @@ void wifiTask(void* param) {
 
 /**
  * @brief Load config from NVS, start to connect to WIFI and initiate a background task to keep it up
+ * @param apName Name of the softAP
+ * @param apPass Password of the softAP
  */
-void WIFIMANAGER::startBackgroundTask() {
+void WIFIMANAGER::startBackgroundTask(String apName, String apPass) {
+  softApName = apName;
+  softApPass = apPass.length() >= 8 ? apPass : "";
+
   loadFromNVS();
   tryConnect();
   xTaskCreatePinnedToCore(
@@ -60,7 +65,7 @@ void WIFIMANAGER::startBackgroundTask() {
  */
 WIFIMANAGER::WIFIMANAGER(const char * ns) {
   NVS = (char *)ns;
- 
+
 // Disabled disconnect on construct to avoid unneccessary calls
 //  WiFi.mode(WIFI_AP_STA);
 //  WiFi.disconnect();
@@ -186,7 +191,7 @@ bool WIFIMANAGER::writeToNVS() {
     }
     preferences.end();
     return true;
-  } 
+  }
   Serial.println(F("[WIFI] Unable to write data to NVS, giving up..."));
   return false;
 }
@@ -308,12 +313,12 @@ void WIFIMANAGER::loop() {
     } else {
       // let's try to connect to some WiFi in Range
       if (!tryConnect()) {
-        if (createFallbackAP) runSoftAP();
+        if (createFallbackAP) runSoftAP(softApName, softApPass);
         else Serial.println(F("[WIFI] Auto creation of SoftAP is disabled, no starting AP!"));
       }
     }
   }
-  
+
   if (softApRunning && millis() - startApTimeMillis > timeoutApMillis) {
     if (WiFi.softAPgetStationNum() > 0) {
       Serial.printf("[WIFI] SoftAP has %d clients connected!\n", WiFi.softAPgetStationNum());
@@ -335,7 +340,7 @@ void WIFIMANAGER::loop() {
 bool WIFIMANAGER::tryConnect() {
   if (!configAvailable()) {
     Serial.println(F("[WIFI] No SSIDs configured in NVS, unable to connect."));
-    if (createFallbackAP) runSoftAP();
+    if (createFallbackAP) runSoftAP(softApName, softApPass);
     return false;
   }
 
@@ -383,7 +388,7 @@ bool WIFIMANAGER::tryConnect() {
     Serial.println(F("[WIFI] Unable to find an SSID to connect to!"));
     return false;
   } else {
-    Serial.printf("[WIFI] Trying to connect to SSID %s with password %s.\n", 
+    Serial.printf("[WIFI] Trying to connect to SSID %s with password %s.\n",
       apList[choosenAp].apName.c_str(),
       (apList[choosenAp].apPass.length() > 0 ? "'***'" : "''")
     );
@@ -441,7 +446,7 @@ bool WIFIMANAGER::tryConnect() {
  * @return true on success
  * @return false o error or if a SoftAP already runs
  */
-bool WIFIMANAGER::runSoftAP(String apName) {
+bool WIFIMANAGER::runSoftAP(String apName, String apPass) {
   if (softApRunning) return true;
   startApTimeMillis = millis();
 
@@ -449,7 +454,7 @@ bool WIFIMANAGER::runSoftAP(String apName) {
   Serial.printf("[WIFI] Starting configuration portal on AP SSID %s\n", apName.c_str());
 
   WiFi.mode(WIFI_AP);
-  bool state = WiFi.softAP(apName.c_str());
+  bool state = WiFi.softAP(apName.c_str(), apPass.c_str());
   if (state) {
     IPAddress IP = WiFi.softAPIP();
     Serial.print(F("[WIFI] AP created. My IP is: "));
@@ -538,9 +543,9 @@ void WIFIMANAGER::attachWebServer(WebServer * srv) {
 #endif
     yield();
     delay(250);
-    runSoftAP();
+    runSoftAP(softApName, softApPass);
   });
-  
+
 #if ASYNC_WEBSERVER == true
   webServer->on((apiPrefix + "/softap/stop").c_str(), HTTP_POST, [&](AsyncWebServerRequest * request){}, NULL,
     [&](AsyncWebServerRequest * request, uint8_t *data, size_t len, size_t index, size_t total) {
@@ -730,11 +735,11 @@ void WIFIMANAGER::attachWebServer(WebServer * srv) {
     jsonDoc["nm"] = WiFi.subnetMask().toString();
 
     jsonDoc["hostname"] = WiFi.getHostname();
-    
+
     jsonDoc["chipModel"] = ESP.getChipModel();
     jsonDoc["chipRevision"] = ESP.getChipRevision();
     jsonDoc["chipCores"] = ESP.getChipCores();
-    
+
     jsonDoc["getHeapSize"] = ESP.getHeapSize();
     jsonDoc["freeHeap"] = ESP.getFreeHeap();
 
